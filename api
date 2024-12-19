@@ -1,7 +1,6 @@
 'use strict';
 const { Thread, Reply } = require("../model/messageBoard")
 
-
 module.exports = function (app) {
 
   app.route('/api/threads/:board')
@@ -42,32 +41,45 @@ module.exports = function (app) {
       }).slice(0, 10)
       res.send(threads)
     })
-  .delete(async (req, res) => {
-    try {
+    .delete(async (req, res) => {
+      // DELETE ROUTE for THREAD
       const { thread_id, delete_password } = req.body;
 
+      // Input validation
       if (!thread_id || !delete_password) {
-        return res.send("incorrect password"); // Handles missing inputs
+        return res.send("incorrect password"); // Missing input handling
       }
 
-      const threadToDelete = await Thread.findById(thread_id);
+      try {
+        const threadToDelete = await Thread.findById(thread_id);
 
-      if (!threadToDelete) {
-        return res.send("incorrect password"); // Handles invalid thread_id
+        if (!threadToDelete) {
+          return res.send("incorrect password"); // Thread not found
+        }
+
+        if (threadToDelete.delete_password === delete_password) {
+          await threadToDelete.remove(); // Delete thread
+          return res.send("success");
+        } else {
+          return res.send("incorrect password"); // Password mismatch
+        }
+      } catch (err) {
+        console.error(err);
+        return res.status(500).send("Server error"); // General error handling
       }
-
-      if (threadToDelete.delete_password === delete_password) {
-        await threadToDelete.remove();
-        return res.send("success");
+    })
+    .put(async (req, res) => {
+      // PUT ROUTE
+      const { board, thread_id } = req.body
+      let threadToUpdate = await Thread.findById(thread_id)
+      if (threadToUpdate) {
+        threadToUpdate.reported = true
+        await threadToUpdate.save()
+        res.send("reported")
       } else {
-        return res.send("incorrect password");
+        res.send("incorrect thread id")
       }
-    } catch (err) {
-      console.error(err);
-      res.status(500).send("Server error"); // For debugging purposes
-    }
-  });
-
+    });
 
   app.route('/api/replies/:board')
     .post(async (req, res) => {
@@ -108,25 +120,39 @@ module.exports = function (app) {
       res.send(threadToView)
     })
     .delete(async (req, res) => {
-      // DELETE ROUTE
-      const { thread_id, reply_id, delete_password } = req.body
+      // DELETE ROUTE for REPLY
+      const { thread_id, reply_id, delete_password } = req.body;
 
-      let threadTarget = await Thread.findById(thread_id)
-      for (let reply of threadTarget.replies) {
-        if (reply._id.toString() === reply_id && reply.delete_password === delete_password) {
-          reply.text = "[deleted]"
-          threadTarget.bumped_on = new Date()
-          await threadTarget.save()
-          res.send("success")
-          return
-        }
+      if (!thread_id || !reply_id || !delete_password) {
+        return res.send("incorrect password"); // Missing input handling
       }
 
-      res.send("incorrect password")
-    })
+      try {
+        const threadToDeleteReplyFrom = await Thread.findById(thread_id);
 
-    
-    
+        if (!threadToDeleteReplyFrom) {
+          return res.send("incorrect password"); // Thread not found
+        }
+
+        const replyToDelete = threadToDeleteReplyFrom.replies.id(reply_id);
+
+        if (!replyToDelete) {
+          return res.send("incorrect password"); // Reply not found
+        }
+
+        if (replyToDelete.delete_password === delete_password) {
+          replyToDelete.text = "[deleted]"; // Mask the reply text
+          threadToDeleteReplyFrom.bumped_on = new Date(); // Update bump date
+          await threadToDeleteReplyFrom.save();
+          return res.send("success");
+        } else {
+          return res.send("incorrect password"); // Password mismatch
+        }
+      } catch (err) {
+        console.error(err);
+        return res.status(500).send("Server error"); // General error handling
+      }
+    })
     .put(async (req, res) => {
       const { thread_id, reply_id, board } = req.body
       const threadTarget = await Thread.findById(thread_id)
