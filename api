@@ -154,6 +154,7 @@ module.exports = function (app) {
       }
     })
     .put(async (req, res) => {
+      // PUT ROUTE for REPLY
       const { thread_id, reply_id, board } = req.body
       const threadTarget = await Thread.findById(thread_id)
       const replyTarget = threadTarget.replies.find(reply => reply._id.toString() === reply_id)
@@ -166,6 +167,6 @@ module.exports = function (app) {
       } else {
         res.send("incorrect")
       }
-    })
+    });
 
 };
