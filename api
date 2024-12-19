@@ -43,6 +43,7 @@ module.exports = function (app) {
     })
     .delete(async (req, res) => {
       // DELETE ROUTE for THREAD
+      const { board } = req.params;
       const { thread_id, delete_password } = req.body;
 
       // Input validation
@@ -51,18 +52,17 @@ module.exports = function (app) {
       }
 
       try {
-        const threadToDelete = await Thread.findById(thread_id);
+        const threadToDelete = await Thread.findOneAndDelete({
+          _id: thread_id,
+          board,
+          delete_password
+        });
 
         if (!threadToDelete) {
-          return res.send("incorrect password"); // Thread not found
+          return res.send("incorrect password"); // Thread not found or password mismatch
         }
 
-        if (threadToDelete.delete_password === delete_password) {
-          await threadToDelete.remove(); // Delete thread
-          return res.send("success");
-        } else {
-          return res.send("incorrect password"); // Password mismatch
-        }
+        return res.send("success");
       } catch (err) {
         console.error(err);
         return res.status(500).send("Server error"); // General error handling
@@ -170,3 +170,4 @@ module.exports = function (app) {
     });
 
 };
+//Handled my copilot//
